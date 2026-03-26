@@ -4,6 +4,10 @@ A macOS menu bar app that dramatically plays a countdown theme before every meet
 
 Inspired by [this tweet](https://x.com/rtwlz/status/2036082537949434164).
 
+
+https://github.com/user-attachments/assets/c0836b95-1d15-4f25-9d98-3174c3b6f98b
+
+
 ## How it works
 
 1. Reads your upcoming meetings from macOS Calendar via EventKit
