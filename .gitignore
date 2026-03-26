@@ -1,0 +1,7 @@
+.venv/
+countdown.*
+.DS_Store
+OnAir.app/
+build/
+dist/
+demo.mp4
