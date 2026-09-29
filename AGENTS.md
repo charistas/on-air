@@ -22,8 +22,10 @@ The supported runtime is the native Swift app in `OnAir.swift`, built into `OnAi
   - solid red timer pill while audio is playing
   - flashing red timer pill for the final 10 seconds
   - `((•)) LIVE` solid red pill for 60s after meeting start
-- quiet rules: skips events with free availability or where the current user declined
-- test mode: `Test Countdown` injects a fake meeting to verify the full cycle; works without Calendar access
+- quiet rules: skips events with free availability or where the current user declined; tentative/no-response events are not skipped
+- test mode: `Test Countdown` injects a fake meeting `audioTrigger + 10` seconds ahead to verify countdown → audio → flash → LIVE → idle without Calendar access. It hides Join Meeting and skips notifications.
+- Calendar access revoked during a real countdown stops audio. The status timer runs every second.
+- Configuration constants: `countdownVisible`, `flashAt`, `liveSeconds`, `upcomingWindow`; `audioTrigger` is derived from mp3 duration.
 - dropdown header shows:
   - meeting title
   - compact metadata like `7:00 AM (11m) · Home` or `7:00 AM (LIVE) · Home`
@@ -48,7 +50,7 @@ The supported runtime is the native Swift app in `OnAir.swift`, built into `OnAi
 - Do not use LaunchAgent-based startup — it cannot acquire Calendar TCC permission.
 - Do not use a shell-wrapper `.app` that `exec`s another binary — same TCC issue.
 - Calendar access must belong to the app bundle identifier `com.on-air.countdown`.
-- If Calendar access is broken, the known recovery path is:
+- If Calendar access is broken, the known recovery path below resets privacy consent and reinstalls the app. Use it only when the task explicitly includes that recovery; routine verification does not authorize it. Existing explicit authorization is sufficient:
 
 ```bash
 tccutil reset Calendar com.on-air.countdown
@@ -81,17 +83,19 @@ bash install.sh
 - `uninstall.sh` — uninstall/stop flow
 - `OnAir.app/Contents/Info.plist` — bundle metadata and privacy strings
 - `README.md` — user-facing docs
-- `CLAUDE.md` — Claude-specific repo notes
+- `AGENTS.md` — canonical repository guidance
+- `CLAUDE.md` — import wrapper for that guidance
 
 ## Verification
 
-When changing the Swift app or install flow, run:
+When changing the Swift app or install flow, run these checks when execution is authorized. Before heavyweight Apple compilation, read `~/.codex/apple-toolchain/SIMULATORS.md` and use the shared host lock/supervision helpers on this laptop. On this laptop, missing or incompatible helpers block heavyweight compilation; do not bypass them. On other hosts, use that host's approved workflow with equivalent no-overlap and process-ownership boundaries. These checks compile or inspect syntax and do not install, launch, change login items, or reset permissions:
 
 ```bash
 swiftc -parse-as-library OnAir.swift -framework AppKit -framework AVFoundation -framework EventKit -framework UserNotifications -o /tmp/onair-swift-test
 bash -n install.sh && bash -n uninstall.sh
-bash install.sh
 ```
+
+Installation/runtime verification is a separate scope: `bash install.sh` builds, modifies login-item/LaunchAgent state, stops older app instances and launches the app; `bash uninstall.sh` stops it and removes its login item. Run these only when those side effects are explicitly included in the authorized task. Do not stop another session's app without authority. When installation is authorized, verify the running app and check for fresh crash reports.
 
 Useful runtime checks:
 
@@ -101,15 +105,17 @@ sqlite3 "$HOME/Library/Application Support/com.apple.TCC/TCC.db" "select service
 ls -1t "$HOME/Library/Logs/DiagnosticReports" | sed -n '1,10p'
 ```
 
-No fresh `OnAir*.ips` crash report after reinstall is a meaningful signal that the app stayed up.
+After an authorized reinstall, confirm a live `OnAir.app/Contents/MacOS/OnAir` process and no fresh `OnAir*.ips` crash report. These signals do not prove Calendar permission, meeting behavior, or audio correctness. Read-only diagnostics may still require OS access; report a permission blocker instead of resetting privacy consent.
 
 ## Editing guidance
 
-- Prefer small, reviewable changes.
+- Prefer small, reviewable changes; keep logic in `OnAir.swift` unless a split is justified.
+- No audio files committed: `countdown.mp3` is user-supplied and gitignored.
+- Keep code/comments concise; explain non-obvious logic.
 - Preserve the compact status-item design unless the user explicitly asks for a different UX.
 - Keep user-facing strings concise; menu bar and menu copy have hard space constraints.
 - If behavior changes, update `README.md`.
-- If architecture/install flow changes, update `README.md`, `CLAUDE.md`, and `AGENTS.md`.
+- If architecture/install flow changes, update `README.md` and canonical `AGENTS.md`; keep `CLAUDE.md` as an import wrapper.
 
 ## Environment assumptions
 
